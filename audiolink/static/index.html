@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AudioLink 音链 · 局域网音频共享</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --card:#ffffff; --line:#e3e8ef; --ink:#1b2430; --ink2:#5b6878;
+    --accent:#2f6fed; --accent-soft:#e8f0ff; --ok:#12a150; --warn:#c47f00; --err:#d33b3b;
+    --radius:14px; --mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#12161c; --card:#1a1f27; --line:#2a323d; --ink:#e8edf4; --ink2:#9aa7b6;
+           --accent:#5b8ef7; --accent-soft:#1e2a44; --ok:#35c46b; --warn:#e0a03a; --err:#ef6b6b; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.55 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:16px 22px;
+    background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#2f6fed,#7bb0ff);
+    display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+  h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px}
+  .sub{color:var(--ink2);font-size:12px;margin-left:2px}
+  .pill{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12.5px;
+    color:var(--ink2);border:1px solid var(--line);padding:5px 11px;border-radius:999px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#b9c2cd}
+  .dot.on{background:var(--ok);box-shadow:0 0 0 4px rgba(18,161,80,.15)}
+  .dot.err{background:var(--err)}
+  main{display:grid;grid-template-columns:minmax(340px,420px) 1fr;gap:16px;padding:18px;max-width:1180px;margin:0 auto}
+  @media (max-width:860px){ main{grid-template-columns:1fr} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .card + .card{margin-top:14px}
+  .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--ink2);padding:8px 0;border-radius:8px;
+    font-size:13px;cursor:pointer;font-weight:500}
+  .seg button.sel{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.08);font-weight:600}
+  label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 6px;font-weight:500}
+  select,input[type=text]{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;
+    background:var(--card);color:var(--ink);font:13px system-ui,"Microsoft YaHei",sans-serif;outline:none}
+  select:focus,input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .row{display:flex;gap:8px}
+  .row > *{flex:1}
+  .btn{border:0;border-radius:10px;padding:11px 16px;font-size:13.5px;font-weight:600;cursor:pointer;
+    background:var(--accent);color:#fff;transition:.15s}
+  .btn:hover{filter:brightness(1.06)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:500}
+  .btn.danger{background:var(--err)}
+  .actions{display:flex;gap:8px;margin-top:16px}
+  .actions .btn{flex:1}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:0}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);
+    border-radius:999px;padding:4px 10px;font-size:12px;font-family:var(--mono)}
+  .chip b{font-weight:500;font-family:system-ui,"Microsoft YaHei"}
+  .chip span{cursor:pointer;opacity:.6}
+  .chip span:hover{opacity:1}
+  .hint{color:var(--ink2);font-size:12px;line-height:1.7;margin-top:12px;
+    border-top:1px dashed var(--line);padding-top:10px}
+  .hint b{color:var(--ink);font-weight:600}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media (max-width:640px){ .metrics{grid-template-columns:repeat(2,1fr)} }
+  .metric{background:var(--bg);border-radius:10px;padding:10px 12px}
+  .metric .k{font-size:11.5px;color:var(--ink2)}
+  .metric .v{font-size:20px;font-weight:650;font-family:var(--mono);font-variant-numeric:tabular-nums;
+    margin-top:2px;letter-spacing:-.3px}
+  .metric .v small{font-size:11px;font-weight:400;color:var(--ink2);margin-left:3px}
+  .meter{display:flex;gap:3px;align-items:flex-end;height:44px;margin:16px 0 4px}
+  .meter i{flex:1;background:var(--line);border-radius:3px;transition:background .08s,height .08s;height:100%}
+  .meter i.on{background:linear-gradient(180deg,var(--ok),#59d18c)}
+  .meter i.hot{background:linear-gradient(180deg,var(--err),#f08c8c)}
+  .now{font-size:12.5px;color:var(--ink2);margin-top:10px;line-height:1.8}
+  .now code{font-family:var(--mono);color:var(--ink);background:var(--bg);padding:1px 6px;border-radius:5px}
+  .logs{font-family:var(--mono);font-size:11.5px;line-height:1.65;color:var(--ink2);
+    max-height:180px;overflow:auto;background:var(--bg);border-radius:10px;padding:10px;margin-top:8px}
+  .logs .err{color:var(--err)} .logs .warn{color:var(--warn)}
+  .logs .t{opacity:.55;margin-right:6px}
+  .sec-title{font-size:12px;color:var(--ink2);font-weight:600;letter-spacing:.4px;
+    text-transform:uppercase;margin:0 0 10px}
+  .hidden{display:none!important}
+  .empty{color:var(--ink2);font-size:12px;padding:6px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AL</div>
+  <div>
+    <h1>AudioLink 音链</h1>
+  </div>
+  <div class="sub" id="ver"></div>
+  <div class="pill"><span class="dot" id="dot"></span><span id="pillText">未启动</span></div>
+</header>
+
+<main>
+  <div>
+    <div class="card">
+      <div class="seg" id="roleSeg">
+        <button data-role="recv" class="sel">接收端（本机放声）</button>
+        <button data-role="send">发送端（本机出声源）</button>
+      </div>
+
+      <!-- 接收端 -->
+      <div id="recvPane">
+        <label class="f">渲染到哪块声卡</label>
+        <select id="recvDev"></select>
+        <label class="f">目标缓冲 <span id="latVal" class="sub"></span></label>
+        <input type="range" id="latency" min="40" max="500" step="10" value="120" style="width:100%">
+        <div class="hint">
+          选 <b>Voicemeeter Input / VB-Audio</b> 这类虚拟声卡，就能把远端声音并进你的
+          Voicemeeter 混音总线（再走 A1/A2 到音箱）；选真实扬声器就是直接外放。
+        </div>
+      </div>
+
+      <!-- 发送端 -->
+      <div id="sendPane" class="hidden">
+        <label class="f">音源类型</label>
+        <div class="seg" id="srcSeg">
+          <button data-src="system" class="sel">系统声音</button>
+          <button data-src="mic">麦克风</button>
+          <button data-src="file">音频文件</button>
+        </div>
+        <div id="devWrap">
+          <label class="f">采集设备（[系统声音] = 该播放设备的整机输出）</label>
+          <select id="sendDev"></select>
+        </div>
+        <div id="fileWrap" class="hidden">
+          <label class="f">音频文件路径（wav 直接支持；mp3/flac 需 pip install soundfile）</label>
+          <input type="text" id="filePath" placeholder="D:\Music\demo.wav">
+        </div>
+
+        <label class="f">接收端 IP</label>
+        <div class="row">
+          <input type="text" id="peerInput" placeholder="192.168.50.20 或 192.168.50.20:45800">
+          <button class="btn ghost" style="flex:0 0 74px" id="btnAddPeer">添加</button>
+        </div>
+        <div class="chips" id="peerChips"></div>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn ghost" id="btnDiscover">扫描局域网接收端</button>
+        </div>
+        <div class="chips" id="foundChips"></div>
+      </div>
+
+      <label class="f">音量 <span id="volVal" class="sub"></span></label>
+      <input type="range" id="volume" min="0" max="300" step="5" value="100" style="width:100%">
+
+      <div class="actions">
+        <button class="btn" id="btnStart">开始</button>
+        <button class="btn danger" id="btnStop" disabled>停止</button>
+      </div>
+      <div class="hint" id="tip">
+        首次使用请让 Windows 防火墙放行本程序（私有网络），否则 UDP 45800/45801 会被拦。
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <p class="sec-title">实时监控</p>
+      <div class="metrics">
+        <div class="metric"><div class="k" id="m1k">已收数据包</div><div class="v" id="m1">—</div></div>
+        <div class="metric"><div class="k" id="m2k">丢包</div><div class="v" id="m2">—</div></div>
+        <div class="metric"><div class="k" id="m3k">缓冲</div><div class="v" id="m3">—<small>ms</small></div></div>
+        <div class="metric"><div class="k" id="m4k">抖动</div><div class="v" id="m4">—<small>ms</small></div></div>
+      </div>
+      <div class="meter" id="meter"></div>
+      <div class="now" id="now">未启动。</div>
+    </div>
+    <div class="card">
+      <p class="sec-title">事件</p>
+      <div class="logs" id="logs">等待操作 ……</div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let role = 'recv', srcMode = 'system', running = false, roleTouched = false;
+let peers = [], devices = {inputs: [], outputs: []}, lastStatus = {};
+
+/* ---------------- 电平表 ---------------- */
+const BARS = 28;
+(function buildMeter(){
+  const m = $('meter');
+  for (let i = 0; i < BARS; i++) m.appendChild(document.createElement('i'));
+})();
+function drawMeter(rms){
+  const bars = $('meter').children;
+  const db = rms > 0 ? 20 * Math.log10(rms) : -90;
+  const n = Math.max(0, Math.min(BARS, Math.round((db + 70) / 70 * BARS)));
+  for (let i = 0; i < BARS; i++){
+    const on = i < n;
+    bars[i].className = on ? (i > BARS * 0.82 ? 'hot' : 'on') : '';
+  }
+}
+
+/* ---------------- 设备列表 ---------------- */
+async function loadDevices(){
+  const r = await fetch('/api/devices'); const d = await r.json();
+  devices = d;
+  const fill = (sel, list, autoText) => {
+    const prev = sel.value;
+    sel.innerHTML = '';
+    const o0 = document.createElement('option');
+    o0.value = 'auto'; o0.textContent = autoText;
+    sel.appendChild(o0);
+    list.forEach(x => {
+      const o = document.createElement('option');
+      o.value = x.uid;
+      o.textContent = (x.label) + `  · ${x.channels}ch ${x.samplerate}Hz`;
+      sel.appendChild(o);
+    });
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+  };
+  const auto = devices.outputs.find(x => x.is_default);
+  fill($('recvDev'), devices.outputs, auto ? `自动（系统默认：${auto.name}）` : '自动（系统默认）');
+  const loops = devices.inputs.filter(x => x.is_loopback);
+  const autoL = loops.find(x => auto && x.name === auto.name) || loops[0];
+  fill($('sendDev'), devices.inputs, autoL ? `自动（${autoL.name}）` : '自动（默认设备）');
+  return d;
+}
+
+/* ---------------- 角色 / 音源切换 ---------------- */
+function applyRole(r){
+  role = r;
+  [...$('roleSeg').children].forEach(x => x.classList.toggle('sel', x.dataset.role === r));
+  $('recvPane').classList.toggle('hidden', r !== 'recv');
+  $('sendPane').classList.toggle('hidden', r !== 'send');
+  refreshMetricsStatic();
+}
+$('roleSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  roleTouched = true;
+  applyRole(b.dataset.role);
+});
+$('srcSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  srcMode = b.dataset.src;
+  [...$('srcSeg').children].forEach(x => x.classList.toggle('sel', x === b));
+  $('devWrap').classList.toggle('hidden', srcMode === 'file');
+  $('fileWrap').classList.toggle('hidden', srcMode !== 'file');
+});
+
+/* ---------------- 对端 IP chips ---------------- */
+function renderPeers(){
+  const box = $('peerChips'); box.innerHTML = '';
+  peers.forEach((p, i) => {
+    const c = document.createElement('div'); c.className = 'chip';
+    c.innerHTML = `<b>${p}</b><span data-i="${i}">×</span>`;
+    box.appendChild(c);
+  });
+  box.querySelectorAll('span').forEach(s => s.onclick = () => {
+    peers.splice(+s.dataset.i, 1); renderPeers();
+  });
+}
+function addPeer(v){
+  v = (v || '').trim(); if (!v) return;
+  if (!peers.includes(v)) peers.push(v);
+  renderPeers();
+}
+$('btnAddPeer').onclick = () => { addPeer($('peerInput').value); $('peerInput').value = ''; };
+$('peerInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnAddPeer').click(); });
+
+$('btnDiscover').onclick = async () => {
+  const b = $('btnDiscover'); b.disabled = true; b.textContent = '扫描中…';
+  try{
+    const r = await fetch('/api/discover', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json();
+    const box = $('foundChips'); box.innerHTML = '';
+    if (!d.receivers || !d.receivers.length){
+      box.innerHTML = '<div class="empty">没扫到。检查对方是否已在「接收端」点过开始，或防火墙是否放行。</div>';
+    } else {
+      d.receivers.forEach(rc => {
+        const c = document.createElement('div'); c.className = 'chip';
+        c.innerHTML = `<b>${rc.name || rc.ip}</b> ${rc.addr}`;
+        c.title = rc.device || '';
+        c.onclick = () => addPeer(rc.ip);
+        box.appendChild(c);
+      });
+    }
+  } finally { b.disabled = false; b.textContent = '扫描局域网接收端'; }
+};
+
+/* ---------------- 启停 ---------------- */
+$('latency').oninput = () => $('latVal').textContent = `（${$('latency').value} ms，越小越跟手，越大越抗卡）`;
+$('volume').oninput = () => $('volVal').textContent = `（${(+$('volume').value / 100).toFixed(2)}×）`;
+$('latency').oninput(); $('volume').oninput();
+
+$('btnStart').onclick = async () => {
+  const cfg = {
+    role,
+    device: role === 'recv' ? $('recvDev').value : (srcMode === 'file' ? null : $('sendDev').value),
+    source: role === 'send' ? srcMode : null,
+    file: $('filePath').value,
+    peers: role === 'send' ? peers : [],
+    latency: +$('latency').value,
+    volume: +$('volume').value / 100,
+  };
+  $('btnStart').disabled = true;
+  const r = await fetch('/api/start', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cfg)});
+  const d = await r.json();
+  if (!d.ok){ $('btnStart').disabled = false; alert('启动失败：' + (d.error || '未知错误')); }
+};
+
+$('btnStop').onclick = async () => {
+  await fetch('/api/stop', {method:'POST', body:'{}'});
+};
+
+/* ---------------- 状态渲染 ---------------- */
+function refreshMetricsStatic(){
+  if (role === 'send'){ $('m1k').textContent = '已发数据包'; $('m2k').textContent = '对端丢包';
+    $('m3k').textContent = '对端缓冲'; $('m4k').textContent = '码率'; }
+  else { $('m1k').textContent = '已收数据包'; $('m2k').textContent = '丢包';
+    $('m3k').textContent = '缓冲'; $('m4k').textContent = '抖动'; }
+}
+
+function render(s){
+  lastStatus = s;
+  running = !!s.running;
+  $('dot').className = 'dot' + (s.error ? ' err' : (running ? ' on' : ''));
+  $('pillText').textContent = s.error ? '异常' : (running ? (s.role === 'send' ? '发送中' : '接收中') : '未启动');
+  $('btnStop').disabled = !running;
+  $('btnStart').disabled = running;
+  $('ver').textContent = 'v' + (s.version || '');
+
+  if (!roleTouched && s.role && s.role !== role) applyRole(s.role);
+
+  if (s.role === 'recv' && s.recv){
+    const r = s.recv;
+    $('m1').textContent = r.packets;
+    $('m2').textContent = r.lost;
+    $('m3').innerHTML = `${r.buffered_ms}<small>ms</small>`;
+    $('m4').innerHTML = `${r.jitter_ms}<small>ms</small>`;
+    drawMeter(r.rms);
+    $('now').innerHTML = r.waiting
+      ? '等待发送端连接 ……'
+      : `来自 <code>${r.sender || '?'}</code> (${r.sender_addr || '—'})　解码 <code>${r.source_rate}Hz → ${r.out_rate}Hz/${r.out_channels}ch</code><br>
+         渲染到 <code>${r.device || '—'}</code>　欠载 ${r.underruns} 次　已收 ${(r.bytes/1048576).toFixed(1)} MB`;
+  } else if (s.role === 'send' && s.send){
+    const d = s.send;
+    const p = (d.peers && d.peers[0]) || {};
+    $('m1').textContent = d.packets;
+    $('m2').textContent = p.lost ?? '—';
+    $('m3').innerHTML = `${p.buffered_ms ?? '—'}<small>ms</small>`;
+    $('m4').innerHTML = `${d.kbps}<small>kbps</small>`;
+    drawMeter(d.rms);
+    $('now').innerHTML = `音源 <code>${d.source || '—'}</code><br>
+      对端 ${d.peers.length ? d.peers.map(x => `<code>${x.addr}</code>`).join(' ') : '未连接'}`;
+  } else {
+    drawMeter(0);
+    $('now').textContent = '未启动。左侧选择角色与设备后点「开始」。';
+    ['m1','m2','m3','m4'].forEach(id => $(id).textContent = '—');
+  }
+  if (s.error) $('now').innerHTML = `<span style="color:var(--err)">${s.error}</span>`;
+
+  if (s.logs){
+    const el = $('logs');
+    el.innerHTML = s.logs.map(l =>
+      `<div class="${l.l}"><span class="t">${l.t}</span>${l.m.replace(/</g,'&lt;')}</div>`).join('');
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+/* ---------------- 启动 ---------------- */
+(async function init(){
+  refreshMetricsStatic();
+  await loadDevices();
+  const es = new EventSource('/api/events');
+  es.onmessage = (e) => { try { render(JSON.parse(e.data)); } catch(_){} };
+  es.onerror = () => { $('pillText').textContent = '控制台连接断开'; };
+})();
+</script>
+</body>
+</html>

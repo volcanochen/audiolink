@@ -1,0 +1,8 @@
+# Windows 用 PyAudioWPatch：它自带 WASAPI 回环（抓"系统正在播放的声音"），
+# sounddevice 不支持回环，只能抓麦克风。
+numpy>=1.26
+PyAudioWPatch>=0.2.12; platform_system == "Windows"
+sounddevice>=0.4.6; platform_system != "Windows"
+
+# 可选：需要推 mp3/flac 音频文件时再装（wav 不需要）
+# soundfile>=0.12.1
